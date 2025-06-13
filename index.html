@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TBD Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        /* Custom styles and overrides */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a202c; /* Always dark theme background */
+            color: #ffffff; /* Default text color for dark mode */
+        }
+
+        /* Keyframe for error banner animation */
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -100%);
+            }
+            to {
+                opacity: 1;
+                transform: translate(-50%, 0);
+            }
+        }
+        .animate-slideIn {
+            animation: slideIn 0.5s ease-out forwards;
+        }
+
+        /* Styling for scrollbars for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #2d3748; /* Dark mode track */
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #5a67d8; /* Dark mode thumb (blueish) */
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #434190; /* Darker blue on hover */
+        }
+
+        /* Basic Markdown rendering styles for better readability in chat bubbles */
+        .chat-bubble-content h1, .chat-bubble-content h2, .chat-bubble-content h3 {
+            font-weight: bold;
+            margin-top: 1em;
+            margin-bottom: 0.5em;
+        }
+        .chat-bubble-content h1 { font-size: 1.5em; }
+        .chat-bubble-content h2 { font-size: 1.3em; }
+        .chat-bubble-content h3 { font-size: 1.1em; }
+        .chat-bubble-content p {
+            margin-bottom: 0.5em;
+        }
+        .chat-bubble-content ul, .chat-bubble-content ol {
+            list-style-position: inside;
+            margin-bottom: 0.5em;
+            padding-left: 1.5em; /* Add some padding for list items */
+        }
+        .chat-bubble-content ul {
+            list-style-type: disc;
+        }
+        .chat-bubble-content ol {
+            list-style-type: decimal;
+        }
+        .chat-bubble-content pre {
+            background-color: #4a5568; /* bg-gray-700 */
+            padding: 0.75em;
+            border-radius: 0.375rem; /* rounded-lg */
+            overflow-x: auto;
+            margin-top: 0.5em;
+            margin-bottom: 0.5em;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+            font-size: 0.875em; /* text-sm */
+            line-height: 1.5;
+        }
+        .chat-bubble-content code {
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+            background-color: #4a5568; /* bg-gray-700 */
+            padding: 0.1em 0.3em;
+            border-radius: 0.25rem; /* rounded */
+            font-size: 0.9em;
+        }
+        .chat-bubble-content strong {
+            font-weight: bold;
+        }
+        .chat-bubble-content em {
+            font-style: italic;
+        }
+        .chat-bubble-content a {
+            color: #93c5fd; /* Light blue for links in dark mode */
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body class="dark">
+    <div id="app" class="flex flex-col h-screen font-inter text-white bg-gray-900">
+        <main class="flex-grow flex flex-col p-4 w-full max-w-4xl mx-auto">
+            <header class="flex items-center justify-between pb-4 border-b border-gray-700 mb-4">
+                <div class="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-1.25-3M3 13h18M5 17h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    <h1 class="text-2xl font-bold text-white">TBD Chat</h1>
+                </div>
+
+                <div class="relative inline-block ml-auto">
+                    <label for="model-select" class="sr-only">Select AI Model</label>
+                    <select id="model-select" class="block w-full pl-3 pr-10 py-2 text-base border-gray-600 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-gray-700 text-white appearance-none cursor-pointer" aria-label="Select AI Model" title="Select AI Model">
+                        </select>
+                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </div>
+                </div>
+
+                </header>
+
+            <div id="chat-window" class="flex-grow bg-gray-800 p-4 rounded-lg shadow-inner overflow-y-auto mb-4 flex flex-col space-y-4">
+                <p class="text-center text-gray-400">Start a new conversation!</p>
+            </div>
+
+            <div class="flex items-center p-3 bg-gray-800 rounded-lg shadow-lg">
+                <textarea id="message-input" class="flex-grow p-2 border border-gray-600 rounded-md bg-gray-700 text-white resize-none h-12 overflow-y-auto focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Type your message..." aria-label="Message input area" title="Type your message (Enter to send, Shift+Enter for new line)"></textarea>
+                <button id="send-button" class="p-3 ml-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition shadow-md" aria-label="Send Message" title="Send Message (Enter)">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 00.149 1.447.998.998 0 00.686.208l7-2.8a1 1 0 00-.001-1.802L10 10.45l-.447 1.341a1 1 0 001.447 1.447l7-2.8a1 1 0 00.149-1.447.998.998 0 00-.686-.208l-7-2.8z" />
+                    </svg>
+                </button>
+            </div>
+        </main>
+
+        <div id="error-banner" class="fixed top-0 left-1/2 -translate-x-1/2 mt-4 p-3 rounded-lg shadow-lg bg-red-500 text-white z-50 flex items-center justify-between hidden" role="alert" aria-live="assertive">
+            <span id="error-message"></span>
+            <button id="close-error-button" class="ml-4 p-1 rounded-full hover:bg-red-600 focus:outline-none" aria-label="Dismiss error">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Configuration for different AI models and their API endpoints/keys
+        const MODEL_CONFIGS = {
+            "Deepseek R1-0528": {
+                apiKey: "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",
+                apiUrl: "https://openrouter.ai/api/v1/chat/completions",
+                type: "openrouter",
+                modelId: "deepseek/deepseek-r1"
+            },
+            "Gemini 2.5 Flash Preview 05-20": {
+                apiKey: "", // Left empty for Canvas auto-injection
+                apiUrl: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent", // Using gemini-2.0-flash endpoint
+                type: "gemini",
+                modelId: "gemini-2.0-flash" // Actual model to send in payload (relevant if API supports multiple on one endpoint)
+            },
+            "Gemini 2.0 Flash": {
+                apiKey: "", // Left empty for Canvas auto-injection
+                apiUrl: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+                type: "gemini",
+                modelId: "gemini-2.0-flash" // Actual model to send in payload
+            }
+        };
+
+        // --- Global State Variables ---
+        let messages = []; // Stores all chat messages
+        let selectedModel = Object.keys(MODEL_CONFIGS)[0]; // Default to the first model
+        let lastAIMessageContainer = null; // Reference to the DOM element of the last AI message container
+
+        // Fixed generation parameters (no longer user-configurable)
+        const DEFAULT_TEMPERATURE = 0.7;
+        const DEFAULT_MAX_TOKENS = 8192; // Max context for many models
+        const DEFAULT_TOP_P = 1.0;
+
+        // --- DOM Element References ---
+        const modelSelect = document.getElementById('model-select');
+        const chatWindow = document.getElementById('chat-window');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const errorBanner = document.getElementById('error-banner');
+        const errorMessageSpan = document.getElementById('error-message');
+        const closeErrorButton = document.getElementById('close-error-button');
+
+        // --- Functions ---
+
+        /**
+         * Copies text to the clipboard.
+         * Provides visual feedback.
+         * @param {string} text - The text to copy.
+         * @param {HTMLElement} buttonElement - The button element that triggered the copy.
+         */
+        function copyToClipboard(text, buttonElement) {
+            // Use execCommand for broader compatibility in iframes
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed'; // Prevent scrolling to bottom of page
+            textarea.style.opacity = 0; // Hide the textarea
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                const originalText = buttonElement.innerText;
+                buttonElement.innerText = 'Copied!';
+                setTimeout(() => {
+                    buttonElement.innerText = originalText;
+                }, 1500);
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+                // No alert, as per instructions. Just log.
+            } finally {
+                document.body.removeChild(textarea);
+            }
+        }
+
+        /**
+         * Appends a single message to the DOM.
+         * This function is called by renderMessages or directly during streaming updates.
+         * @param {object} msg - The message object.
+         */
+        function appendMessageToDOM(msg) {
+            const isUser = msg.sender === 'user';
+            const bubbleClasses = isUser
+                ? 'bg-blue-600 text-white self-end'
+                : 'bg-gray-200 text-gray-900 dark:bg-gray-700 dark:text-white self-start';
+            const timestampClasses = isUser ? 'text-right' : 'text-left';
+
+            const messageContainer = document.createElement('div');
+            messageContainer.className = `flex flex-col mb-4 max-w-[90%] md:max-w-[70%] ${isUser ? 'items-end' : 'items-start'}`;
+
+            const bubble = document.createElement('div');
+            bubble.className = `p-3 rounded-lg shadow-md ${bubbleClasses} chat-bubble-content`;
+            bubble.setAttribute('role', 'alert');
+            bubble.setAttribute('aria-live', 'polite');
+
+            if (isUser) {
+                bubble.innerHTML = marked.parse(msg.text || '');
+            } else {
+                msg.domElement = bubble; // Store reference for AI streaming updates
+                bubble.innerHTML = marked.parse(msg.text || ''); // Initialize with empty or placeholder text
+            }
+
+            const timestamp = document.createElement('div');
+            timestamp.className = `text-xs text-gray-500 dark:text-gray-400 mt-1 ${timestampClasses}`;
+            timestamp.innerText = msg.timestamp.toLocaleTimeString();
+
+            messageContainer.appendChild(bubble);
+
+            // Add action buttons only for AI messages
+            if (!isUser) {
+                // Hide copy button of previous AI message if it exists
+                if (lastAIMessageContainer) {
+                    const prevCopyBtn = lastAIMessageContainer.querySelector('.copy-btn');
+                    if (prevCopyBtn) {
+                        prevCopyBtn.classList.add('hidden');
+                    }
+                }
+
+                const actionsContainer = document.createElement('div');
+                actionsContainer.className = `flex gap-2 mt-2 ${isUser ? 'justify-end' : 'justify-start'}`;
+
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'copy-btn px-3 py-1 text-xs rounded-md bg-gray-600 text-white hover:bg-gray-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50';
+                copyBtn.innerText = 'Copy';
+                copyBtn.onclick = () => copyToClipboard(msg.text, copyBtn);
+                actionsContainer.appendChild(copyBtn);
+
+                messageContainer.appendChild(actionsContainer);
+
+                msg.copyButtonElement = copyBtn;
+
+                if (msg.streaming) {
+                    actionsContainer.classList.add('hidden');
+                } else {
+                    actionsContainer.classList.remove('hidden');
+                }
+
+                lastAIMessageContainer = messageContainer; // Update last AI message container
+            }
+
+            messageContainer.appendChild(timestamp);
+            chatWindow.appendChild(messageContainer);
+            chatWindow.scrollTop = chatWindow.scrollHeight; // Scroll to bottom
+        }
+
+        /**
+         * Renders all chat messages in the chat window.
+         * Optimized to only append new messages and update existing ones for streaming.
+         */
+        function renderMessages() {
+            if (messages.length === 0) {
+                chatWindow.innerHTML = '<p class="text-center text-gray-400">Start a new conversation!</p>';
+                return;
+            }
+
+            if (chatWindow.children.length === 0 || (chatWindow.children.length === 1 && chatWindow.querySelector('p'))) {
+                 chatWindow.innerHTML = '';
+                 messages.forEach(msg => {
+                    appendMessageToDOM(msg);
+                 });
+            }
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
+
+        /**
+         * Displays an error message.
+         * @param {string} message - The error message to display.
+         */
+        function showError(message) {
+            errorMessageSpan.innerText = message;
+            errorBanner.classList.remove('hidden');
+            setTimeout(() => {
+                errorBanner.classList.add('hidden');
+            }, 5000);
+        }
+
+        /**
+         * Hides the error message.
+         */
+        function hideError() {
+            errorBanner.classList.add('hidden');
+            errorMessageSpan.innerText = '';
+        }
+
+        /**
+         * Populates the model select dropdown.
+         */
+        function populateModelSelect() {
+            modelSelect.innerHTML = '';
+            Object.keys(MODEL_CONFIGS).forEach(modelName => {
+                const option = document.createElement('option');
+                option.value = modelName;
+                option.innerText = modelName;
+                modelSelect.appendChild(option);
+            });
+            modelSelect.value = selectedModel;
+        }
+
+        /**
+         * Sends a message to the selected AI model.
+         * @param {string} messageText - The text of the message to send.
+         */
+        async function sendMessage(messageText) {
+            if (!selectedModel) {
+                showError('Please select an AI model first.');
+                return;
+            }
+
+            const userMessage = { text: messageText, sender: 'user', timestamp: new Date() };
+            messages.push(userMessage);
+            appendMessageToDOM(userMessage);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+
+            const modelConfig = MODEL_CONFIGS[selectedModel];
+            if (!modelConfig) {
+                showError('Selected model configuration not found.');
+                return;
+            }
+
+            const { apiKey, apiUrl, type, modelId } = modelConfig;
+
+            let apiMessages = [];
+            let lastRolePushed = null;
+
+            // Prepare chat history for API payload, ensuring alternating roles for Gemini
+            // and correct roles for OpenRouter.
+            messages.forEach(msg => {
+                const currentRole = msg.sender === 'user' ? 'user' : (type === 'gemini' ? 'model' : 'assistant');
+
+                if (lastRolePushed === currentRole && type === 'gemini') { // Merge only for Gemini if roles are consecutive
+                    if (apiMessages.length > 0) {
+                        apiMessages[apiMessages.length - 1].parts[0].text += "\n" + msg.text;
+                        return;
+                    }
+                }
+                apiMessages.push({ role: currentRole, parts: [{ text: msg.text }] });
+                lastRolePushed = currentRole;
+            });
+
+            try {
+                if (type === "openrouter") {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${apiKey}`,
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            model: modelId,
+                            messages: messages.map(msg => ({ // OpenRouter expects 'assistant' role for AI
+                                role: msg.sender === 'user' ? 'user' : 'assistant',
+                                content: msg.text
+                            })),
+                            temperature: DEFAULT_TEMPERATURE,
+                            max_tokens: DEFAULT_MAX_TOKENS,
+                            top_p: DEFAULT_TOP_P,
+                            stream: true,
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error ? errorData.error.message : response.statusText);
+                    }
+
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder('utf-8');
+                    let receivedText = '';
+
+                    const aiMessage = { text: '', sender: 'ai', timestamp: new Date(), streaming: true };
+                    messages.push(aiMessage);
+                    appendMessageToDOM(aiMessage);
+                    const aiBubbleContentElement = aiMessage.domElement;
+
+                    if (lastAIMessageContainer) {
+                        const actionsContainer = lastAIMessageContainer.querySelector('.flex.gap-2');
+                        if (actionsContainer) actionsContainer.classList.add('hidden');
+                    }
+
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) break;
+
+                        const chunk = decoder.decode(value, { stream: true });
+                        receivedText += chunk;
+
+                        const lines = receivedText.split('\n');
+                        receivedText = lines.pop();
+
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                const jsonStr = line.substring(6);
+                                if (jsonStr === '[DONE]') {
+                                    break;
+                                }
+                                try {
+                                    const data = JSON.parse(jsonStr);
+                                    const content = data.choices[0]?.delta?.content || '';
+                                    if (content) {
+                                        aiMessage.text += content;
+                                        if (aiBubbleContentElement) {
+                                            aiBubbleContentElement.textContent = aiMessage.text;
+                                            chatWindow.scrollTop = chatWindow.scrollHeight;
+                                        }
+                                    }
+                                } catch (e) {
+                                    console.error('Error parsing streaming JSON for OpenRouter:', e, jsonStr);
+                                }
+                            }
+                        }
+                    }
+
+                    aiMessage.streaming = false;
+                    aiMessage.timestamp = new Date();
+                    if (aiBubbleContentElement) {
+                        aiBubbleContentElement.innerHTML = marked.parse(aiMessage.text);
+                    }
+                    if (aiMessage.copyButtonElement) {
+                        const actionsContainer = aiMessage.copyButtonElement.parentNode;
+                        if (actionsContainer) actionsContainer.classList.remove('hidden');
+                    }
+                    chatWindow.scrollTop = chatWindow.scrollHeight;
+
+
+                } else if (type === "gemini") {
+                    const payload = {
+                        contents: apiMessages,
+                        generationConfig: {
+                            temperature: DEFAULT_TEMPERATURE,
+                            maxOutputTokens: DEFAULT_MAX_TOKENS,
+                            topP: DEFAULT_TOP_P,
+                        }
+                    };
+                    console.log("Gemini Payload:", JSON.stringify(payload, null, 2)); // Debugging log
+
+                    const geminiApiUrl = apiUrl;
+
+                    const response = await fetch(geminiApiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const result = await response.json();
+                    console.log("Gemini Raw Response:", result); // Debugging log
+
+                    // Check for network/HTTP errors first
+                    if (!response.ok) {
+                        const errorMessage = result?.error?.message || response.statusText;
+                        throw new Error(`Gemini API HTTP Error: ${errorMessage || "Unknown error"}. Status: ${response.status}`);
+                    }
+
+                    // Proceed only if the HTTP response was OK (status 200-299)
+                    if (result && result.candidates && result.candidates.length > 0) {
+                        const candidate = result.candidates[0];
+                        // Safely access text, ensuring it's a string even if parts[0].text is missing
+                        const aiText = candidate.content?.parts?.[0]?.text || '';
+                        console.log("Gemini Extracted Text:", aiText); // Debugging log
+
+                        let displayMessageText = aiText;
+                        if (!aiText) {
+                            // If no text, provide a reason message
+                            displayMessageText = "Gemini: No content generated.";
+                            if (candidate.finishReason) {
+                                displayMessageText += ` Reason: ${candidate.finishReason}.`;
+                                if (candidate.finishReason === "MAX_TOKENS") {
+                                    displayMessageText += " (Model stopped due to maximum token limit, but no text was produced.)";
+                                } else if (candidate.finishReason === "SAFETY") {
+                                    displayMessageText += " (Response blocked due to safety concerns.)";
+                                } else if (candidate.finishReason === "STOP") {
+                                    displayMessageText += " (Model completed generation, but output was empty.)";
+                                }
+                            } else {
+                                displayMessageText += " (Response structure is unexpected or content is missing.)";
+                            }
+                            console.warn("Gemini did not return primary content:", result); // Log the full response for investigation
+                        }
+
+                        // Create and append the message, using displayMessageText
+                        const aiMessage = { text: displayMessageText, sender: 'ai', timestamp: new Date(), streaming: false };
+                        messages.push(aiMessage);
+                        appendMessageToDOM(aiMessage); // This will call marked.parse internally
+                        chatWindow.scrollTop = chatWindow.scrollHeight;
+
+                    } else {
+                        // This block catches cases where response.ok is true, but result.candidates is empty or malformed
+                        showError("Gemini API error: Received an OK response, but the content structure was invalid or empty.");
+                        console.error("Gemini API unexpected successful response structure:", result);
+                    }
+                } else {
+                    throw new Error("Unsupported model type.");
+                }
+
+                hideError();
+            } catch (error) {
+                console.error('Chat API Error:', error);
+                showError(`Chat Error: ${error.message}`);
+                // If a streaming message was being rendered, remove it on error
+                if (messages.length > 0 && messages[messages.length - 1].streaming) {
+                    const lastMsg = messages.pop();
+                    if (lastMsg.domElement && lastMsg.domElement.parentNode) {
+                        lastMsg.domElement.parentNode.removeChild(lastMsg.domElement.parentNode);
+                    }
+                }
+            }
+        }
+
+        // --- Event Listeners ---
+
+        // Ensure these functions are defined before window.onload is assigned
+        window.onload = function() {
+            populateModelSelect();
+            renderMessages();
+        };
+
+        modelSelect.addEventListener('change', (event) => {
+            selectedModel = event.target.value;
+        });
+
+        messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                const text = messageInput.value.trim();
+                if (text) {
+                    sendMessage(text);
+                    messageInput.value = '';
+                }
+            }
+        });
+
+        sendButton.addEventListener('click', () => {
+            const text = messageInput.value.trim();
+            if (text) {
+                sendMessage(text);
+                messageInput.value = '';
+            }
+        });
+
+        closeErrorButton.addEventListener('click', hideError);
+
+    </script>
+</body>
+</html>
