@@ -288,20 +288,18 @@
 
     <script>
         // --- MODEL CONFIGURATION ---
-        // API keys are directly embedded as per user's instruction.
+        // Gemini API key is embedded. OpenRouter is now called via a backend proxy.
         const GEMINI_API_KEY = "AIzaSyCGkTeb_Yjh7uDiwNvHSDHV7kTRkEJ2b78";
-        const OPENROUTER_API_KEY = "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";
+        const OPENROUTER_PROXY_URL = 'https://script.google.com/macros/s/AKfycbwjcmH_wCHiyWDb_x_eETI36xSI3Of5VieCuMxU25YHNmlUsmUBum2Of0uGvhJ7PD96/exec';
 
         const MODEL_CONFIGS = {
             "Llama 4 Maverick": { 
-                apiKey: OPENROUTER_API_KEY, 
-                apiUrl: "https://openrouter.ai/api/v1/chat/completions", 
+                apiUrl: OPENROUTER_PROXY_URL, 
                 modelName: "meta-llama/llama-4-maverick:free",
                 type: "openrouter" 
             },
             "Deepseek R1-0528": { 
-                apiKey: OPENROUTER_API_KEY, 
-                apiUrl: "https://openrouter.ai/api/v1/chat/completions",
+                apiUrl: OPENROUTER_PROXY_URL,
                 modelName: "deepseek/deepseek-r1-0528:free",
                 type: "openrouter"
             },
@@ -676,13 +674,11 @@
                         temperature: 0.7
                     };
 
+                    // MODIFIED: Fetch options for proxied OpenRouter call
                     fetchOptions = {
                         method: 'POST',
                         headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${modelConfig.apiKey}`,
-                            'HTTP-Referer': 'https://tbd-chat-app.com', // Example referrer
-                            'X-Title': 'TBD Chat' // Example title
+                            'Content-Type': 'application/json'
                         },
                         body: JSON.stringify(payload)
                     };
