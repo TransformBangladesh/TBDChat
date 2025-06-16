@@ -290,7 +290,8 @@
         // --- MODEL CONFIGURATION ---
         // Gemini API key is embedded. OpenRouter is now called via a backend proxy.
         const GEMINI_API_KEY = "AIzaSyCGkTeb_Yjh7uDiwNvHSDHV7kTRkEJ2b78";
-        const OPENROUTER_PROXY_URL = 'https://script.google.com/macros/s/AKfycbwjcmH_wCHiyWDb_x_eETI36xSI3Of5VieCuMxU25YHNmlUsmUBum2Of0uGvhJ7PD96/exec';
+        // --- THIS URL IS NOW UPDATED WITH YOUR DEPLOYMENT ---
+        const OPENROUTER_PROXY_URL = 'https://script.google.com/macros/s/AKfycbz7g_1DV6cV-a39uJZV1W3a6bvy6VpOtg_cs24zUC10QAryak3Fq2DOf49SUwR-7HUw/exec';
 
         const MODEL_CONFIGS = {
             "Llama 4 Maverick": { 
@@ -712,7 +713,16 @@
                 const result = await response.json();
 
                 if (!response.ok || result.error) {
-                    throw new Error(result.error?.message || `HTTP Error ${response.status}: ${JSON.stringify(result)}`);
+                    // Try to extract a more specific error message from the API response
+                    let errorMessage = "An unknown error occurred.";
+                    if (result.error?.message) {
+                        errorMessage = result.error.message;
+                    } else if (result.error?.details?.error?.message) { // Handle nested error structure from our proxy
+                        errorMessage = result.error.details.error.message;
+                    } else if (result.error) {
+                         errorMessage = JSON.stringify(result.error);
+                    }
+                    throw new Error(errorMessage);
                 }
                 
                 let rawAiText;
