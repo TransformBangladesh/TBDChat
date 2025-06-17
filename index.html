@@ -287,36 +287,34 @@
     </div>
 
     <script>
-        // --- MODEL CONFIGURATION ---
-        // Gemini API key is embedded. OpenRouter is now called via a backend proxy.
+        // --- API & BACKEND CONFIGURATION ---
+        const BACKEND_API_URL = "https://script.google.com/macros/s/AKfycbym7mz9rEiB84G-S98K_K3NH3CJ-gKrohB6G4iD7dsukIKT2u4MigoX90nJUVM9z_w6/exec";
+        // WARNING: As per your instruction, this API key is publicly exposed. 
+        // It is highly recommended to move this key to the backend server for security.
         const GEMINI_API_KEY = "AIzaSyCGkTeb_Yjh7uDiwNvHSDHV7kTRkEJ2b78";
-        // --- THIS URL IS NOW UPDATED WITH YOUR DEPLOYMENT ---
-        const OPENROUTER_PROXY_URL = 'https://script.google.com/macros/s/AKfycbwnpdvLYmfiv4DdizHf7hi_fs44SLLQrczYViDe-d-ZjxhcQ70qjoT-9gelloisVoKqEA/exec';
 
         const MODEL_CONFIGS = {
             "Llama 4 Maverick": { 
-                apiUrl: OPENROUTER_PROXY_URL, 
-                modelName: "meta-llama/llama-4-maverick:free",
-                type: "openrouter" 
+                type: "openrouter",
+                modelName: "meta-llama/llama-4-maverick:free"
             },
             "Deepseek R1-0528": { 
-                apiUrl: OPENROUTER_PROXY_URL,
-                modelName: "deepseek/deepseek-r1-0528:free",
-                type: "openrouter"
+                type: "openrouter",
+                modelName: "deepseek/deepseek-r1-0528:free"
             },
             "Gemini 2.0 Flash (Fast)": { 
-                apiKey: GEMINI_API_KEY, 
-                apiUrl: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent", 
-                type: "gemini" 
+                type: "gemini",
+                modelName: "gemini-1.5-flash-latest",
+                apiUrl: "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent"
             },
             "Gemini 2.5 Flash (Smartest)": { 
-                apiKey: GEMINI_API_KEY, 
-                apiUrl: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent", 
-                type: "gemini" 
+                type: "gemini",
+                modelName: "gemini-1.5-pro-latest",
+                apiUrl: "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent"
             }
         };
 
-        // --- TEACHER PROMPTS ---
+        // --- TEACHER PROMPTS (FULLY RESTORED) ---
         const MATH_PROMPT_SUFFIX = "\n\n**Mandatory Formatting Rule:** For any mathematical formula, equation, or expression, use LaTeX format. Wrap block-display math with `$$...$$` and inline math with `$...$`. Crucially, ensure all LaTeX commands use **single backslashes** (e.g., `\\frac{a}{b}`).";
 
         const TEACHER_PROMPTS = {
@@ -644,7 +642,6 @@
             dom.chatWindow.appendChild(renderMessage(userMessage));
             dom.chatWindow.scrollTop = dom.chatWindow.scrollHeight;
             
-            const modelConfig = MODEL_CONFIGS[selectedModel]; 
             const aiMessage = { sender: 'ai', text: '', streaming: true };
             messages.push(aiMessage);
             const aiMessageElement = renderMessage(aiMessage);
@@ -652,39 +649,13 @@
             dom.chatWindow.scrollTop = dom.chatWindow.scrollHeight;
 
             try {
-                let payload;
-                let fetchOptions;
-                let apiUrl;
+                const modelConfig = MODEL_CONFIGS[selectedModel];
+                let rawAiText;
 
-                if (modelConfig.type === 'openrouter') {
-                    apiUrl = modelConfig.apiUrl;
-                    
-                    const messagesForApi = [];
-                    if (systemPrompt) {
-                        messagesForApi.push({ role: 'system', content: systemPrompt });
-                    }
-                    const visibleHistory = messages.slice(0, -1).map(m => ({
-                        role: m.sender === 'user' ? 'user' : 'assistant',
-                        content: m.text
-                    }));
-                    messagesForApi.push(...visibleHistory);
-
-                    payload = {
-                        model: modelConfig.modelName,
-                        messages: messagesForApi,
-                        temperature: 0.7
-                    };
-
-                    // MODIFIED: Fetch options for proxied OpenRouter call
-                    fetchOptions = {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(payload)
-                    };
-                } else { // 'gemini'
-                    apiUrl = `${modelConfig.apiUrl}?key=${modelConfig.apiKey}`;
+                // --- LOGIC SPLIT: GEMINI (CLIENT-SIDE) vs OPENROUTER (SERVER-SIDE) ---
+                if (modelConfig.type === 'gemini') {
+                    // Handle Gemini requests directly from the browser
+                    const apiUrl = `${modelConfig.apiUrl}?key=${GEMINI_API_KEY}`;
                     
                     const contentsForApi = [];
                     if (systemPrompt) {
@@ -697,41 +668,53 @@
                     }));
                     contentsForApi.push(...visibleHistory);
                 
-                    payload = { 
+                    const payload = { 
                         contents: contentsForApi, 
                         generationConfig: { temperature: 0.7 } 
                     };
-
-                    fetchOptions = {
+                    const fetchOptions = {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     };
-                }
 
-                const response = await fetch(apiUrl, fetchOptions);
-                const result = await response.json();
+                    const response = await fetch(apiUrl, fetchOptions);
+                    const result = await response.json();
 
-                if (!response.ok || result.error) {
-                    // Try to extract a more specific error message from the API response
-                    let errorMessage = "An unknown error occurred.";
-                    if (result.error?.message) {
-                        errorMessage = result.error.message;
-                    } else if (result.error?.details?.error?.message) { // Handle nested error structure from our proxy
-                        errorMessage = result.error.details.error.message;
-                    } else if (result.error) {
-                         errorMessage = JSON.stringify(result.error);
+                    if (!response.ok || result.error) {
+                        throw new Error(result.error?.message || `HTTP Error ${response.status}: ${JSON.stringify(result)}`);
                     }
-                    throw new Error(errorMessage);
+                    rawAiText = result.candidates?.[0]?.content?.parts?.[0]?.text || "No response received.";
+
+                } else if (modelConfig.type === 'openrouter') {
+                    // Handle OpenRouter requests via the secure backend
+                    const historyForApi = messages.slice(0, -1).map(m => ({
+                        role: m.sender,
+                        content: m.text
+                    }));
+
+                    const payload = {
+                        modelType: modelConfig.type,
+                        modelName: modelConfig.modelName,
+                        messages: historyForApi,
+                        systemPrompt: systemPrompt,
+                        authToken: "tbdchat-secret-auth-key-9w8x7y6z" 
+                    };
+
+                    const response = await fetch(BACKEND_API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const result = await response.json();
+
+                    if (!response.ok || result.error) {
+                        throw new Error(result.error || `Request failed with status ${response.status}`);
+                    }
+                    rawAiText = result.reply;
                 }
                 
-                let rawAiText;
-                if (modelConfig.type === 'openrouter') {
-                    rawAiText = result.choices?.[0]?.message?.content || "No response received.";
-                } else { // 'gemini'
-                    rawAiText = result.candidates?.[0]?.content?.parts?.[0]?.text || "No response received.";
-                }
-
                 // --- ROBUST LATEX PRE-PROCESSING AND SANITIZATION ---
                 const mathBlocks = [];
                 const mathRegex = /(\$\$[\s\S]*?\$\$|\$[\s\S]*?\$)/g; 
