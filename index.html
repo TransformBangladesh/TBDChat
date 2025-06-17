@@ -287,11 +287,8 @@
     </div>
 
     <script>
-        // --- API & BACKEND CONFIGURATION ---
-        const BACKEND_API_URL = "https://script.google.com/macros/s/AKfycbyRqXTAiuNMnx8FlIIY2bEQHCqpZDllNxHuUZxbvkuJkEA8yOt7LoIMoZQXCz8_0Agniw/exec";
-        // WARNING: As per your instruction, this API key is publicly exposed. 
-        // It is highly recommended to move this key to the backend server for security.
-        const GEMINI_API_KEY = "AIzaSyCGkTeb_Yjh7uDiwNvHSDHV7kTRkEJ2b78";
+        // --- CONFIGURATION ---
+        const BACKEND_API_URL = "https://eo3u67pfp4ditqy.m.pipedream.net";
 
         const MODEL_CONFIGS = {
             "Llama 4 Maverick": { 
@@ -304,13 +301,11 @@
             },
             "Gemini 2.0 Flash (Fast)": { 
                 type: "gemini",
-                modelName: "gemini-1.5-flash-latest",
-                apiUrl: "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent"
+                modelName: "gemini-1.5-flash-latest"
             },
             "Gemini 2.5 Flash (Smartest)": { 
                 type: "gemini",
-                modelName: "gemini-1.5-pro-latest",
-                apiUrl: "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent"
+                modelName: "gemini-1.5-pro-latest"
             }
         };
 
@@ -570,10 +565,7 @@
         const renderMessage = (msg) => {
             const isUser = msg.sender === 'user';
             const wrapper = document.createElement('div');
-            // CHANGE: Wrapper now just aligns the message left or right.
             wrapper.className = `chat-message-wrapper animate-fade-in-up ${isUser ? 'user' : ''}`; 
-            
-            // CHANGE: Avatar element creation has been removed.
             
             const msgBubble = document.createElement('div');
             msgBubble.className = `relative group chat-message-bubble ${isUser ? 'user-message-bubble' : 'ai-message-bubble'}`;
@@ -590,7 +582,6 @@
             msgBubble.appendChild(prose);
             msg.domElement = prose;
 
-            // CHANGE: The bubble is now the only child of the wrapper.
             wrapper.appendChild(msgBubble);
             return wrapper;
         };
@@ -650,107 +641,33 @@
 
             try {
                 const modelConfig = MODEL_CONFIGS[selectedModel];
-                let rawAiText;
-
-                // --- LOGIC SPLIT: GEMINI (CLIENT-SIDE) vs OPENROUTER (SERVER-SIDE) ---
-                if (modelConfig.type === 'gemini') {
-                    // Handle Gemini requests directly from the browser
-                    const apiUrl = `${modelConfig.apiUrl}?key=${GEMINI_API_KEY}`;
-                    
-                    const contentsForApi = [];
-                    if (systemPrompt) {
-                        contentsForApi.push({ role: 'user', parts: [{ text: systemPrompt }] });
-                        contentsForApi.push({ role: 'model', parts: [{ text: "Understood. I will act as the specified teacher and use LaTeX for all math, ensuring correct single backslashes and proper delimiters." }] });
-                    }
-                    const visibleHistory = messages.slice(0, -1).map(m => ({
-                        role: m.sender === 'user' ? 'user' : 'model',
-                        parts: [{ text: m.text }]
-                    }));
-                    contentsForApi.push(...visibleHistory);
                 
-                    const payload = { 
-                        contents: contentsForApi, 
-                        generationConfig: { temperature: 0.7 } 
-                    };
-                    const fetchOptions = {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    };
+                const historyForApi = messages.slice(0, -1).map(m => ({
+                    role: m.sender,
+                    content: m.text
+                }));
 
-                    const response = await fetch(apiUrl, fetchOptions);
-                    const result = await response.json();
+                const payload = {
+                    modelType: modelConfig.type,
+                    modelName: modelConfig.modelName,
+                    messages: historyForApi,
+                    systemPrompt: systemPrompt
+                };
 
-                    if (!response.ok || result.error) {
-                        throw new Error(result.error?.message || `HTTP Error ${response.status}: ${JSON.stringify(result)}`);
-                    }
-                    rawAiText = result.candidates?.[0]?.content?.parts?.[0]?.text || "No response received.";
-
-                } else if (modelConfig.type === 'openrouter') {
-                    // Handle OpenRouter requests via the secure backend
-                    const historyForApi = messages.slice(0, -1).map(m => ({
-                        role: m.sender,
-                        content: m.text
-                    }));
-
-                    const payload = {
-                        modelType: modelConfig.type,
-                        modelName: modelConfig.modelName,
-                        messages: historyForApi,
-                        systemPrompt: systemPrompt,
-                        authToken: "tbdchat-secret-auth-key-9w8x7y6z" 
-                    };
-
-                    const response = await fetch(BACKEND_API_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    const result = await response.json();
-
-                    if (!response.ok || result.error) {
-                        throw new Error(result.error || `Request failed with status ${response.status}`);
-                    }
-                    rawAiText = result.reply;
-                }
-                
-                // --- ROBUST LATEX PRE-PROCESSING AND SANITIZATION ---
-                const mathBlocks = [];
-                const mathRegex = /(\$\$[\s\S]*?\$\$|\$[\s\S]*?\$)/g; 
-                let tempTextToProcess = rawAiText; 
-
-                let match;
-                mathRegex.lastIndex = 0; 
-                let processedTextWithPlaceholders = rawAiText; 
-
-                while ((match = mathRegex.exec(tempTextToProcess)) !== null) {
-                    const fullMatch = match[0]; 
-
-                    let latexContent = fullMatch;
-                    latexContent = latexContent.replace(/\\\\/g, '\\'); 
-                    
-                    const placeholder = `MATH_PLACEHOLDER_${mathBlocks.length}__`;
-                    mathBlocks.push({ placeholder: placeholder, latex: latexContent });
-
-                    processedTextWithPlaceholders = 
-                        processedTextWithPlaceholders.substring(0, match.index) + 
-                        placeholder + 
-                        processedTextWithPlaceholders.substring(match.index + fullMatch.length);
-                    
-                    mathRegex.lastIndex = match.index + placeholder.length;
-                    tempTextToProcess = processedTextWithPlaceholders; 
-                }
-
-                let htmlContent = marked.parse(processedTextWithPlaceholders);
-
-                mathBlocks.forEach(block => {
-                    const globalPlaceholderRegex = new RegExp(block.placeholder.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'g');
-                    htmlContent = htmlContent.replace(globalPlaceholderRegex, block.latex);
+                const response = await fetch(BACKEND_API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
                 });
 
-                aiMessage.text = htmlContent; 
-                
+                const result = await response.json();
+
+                if (!response.ok || result.error) {
+                    throw new Error(result.error || `Request failed with status ${response.status}`);
+                }
+
+                aiMessage.text = result.reply;
+
             } catch (error) {
                 aiMessage.text = `**Error:** ${error.message}`;
                 console.error('API Error:', error);
@@ -760,17 +677,10 @@
                 const proseElement = aiMessage.domElement;
                 const msgBubbleElement = proseElement.parentElement;
                 
-                proseElement.innerHTML = aiMessage.text; 
+                proseElement.innerHTML = marked.parse(aiMessage.text || ''); 
                 
                 if (window.MathJax) {
-                    MathJax.typesetPromise([proseElement]).then(() => {
-                        dom.chatWindow.scrollTop = dom.chatWindow.scrollHeight;
-                    }).catch(err => {
-                        console.error("MathJax rendering failed:", err);
-                        showError("Failed to render math formulas.");
-                    });
-                } else {
-                    dom.chatWindow.scrollTop = dom.chatWindow.scrollHeight;
+                    MathJax.typesetPromise([proseElement]).catch(err => console.error("MathJax rendering failed:", err));
                 }
                 
                 if (msgBubbleElement && !msgBubbleElement.querySelector('.message-copy-button')) {
@@ -852,7 +762,6 @@
                     messages = [{ sender: 'ai', text: teacher.initialEngagementMessage }];
                     renderAllMessages(); 
 
-                    // Ensure model select is always enabled
                     dom.modelSelect.disabled = false; 
 
                     dom.chatWindow.style.opacity = '1';
