@@ -287,29 +287,36 @@
     </div>
 
     <script>
-        // --- CONFIGURATION ---
-        const BACKEND_API_URL = "https://eo3u67pfp4ditqy.m.pipedream.net";
+        // --- MODEL CONFIGURATION ---
+        // API keys are directly embedded as per user's instruction.
+        const GEMINI_API_KEY = "AIzaSyCGkTeb_Yjh7uDiwNvHSDHV7kTRkEJ2b78";
+        const OPENROUTER_API_KEY = "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";
 
         const MODEL_CONFIGS = {
-            "Llama 4 Maverick": { 
-                type: "openrouter",
-                modelName: "meta-llama/llama-4-maverick:free"
-            },
-            "Deepseek R1-0528": { 
-                type: "openrouter",
-                modelName: "deepseek/deepseek-r1-0528:free"
-            },
+            "Gemma 3 (Recommended)": { 
+
+                apiKey: GEMINI_API_KEY, 
+
+                apiUrl: "https://generativelanguage.googleapis.com/v1beta/models/gemma-3-27b-it:generateContent", 
+
+                type: "gemini" 
+
+            },
+
             "Gemini 2.0 Flash (Fast)": { 
-                type: "gemini",
-                modelName: "gemini-1.5-flash-latest"
+                apiKey: GEMINI_API_KEY, 
+                apiUrl: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent", 
+                type: "gemini" 
             },
             "Gemini 2.5 Flash (Smartest)": { 
-                type: "gemini",
-                modelName: "gemini-1.5-pro-latest"
-            }
+                apiKey: GEMINI_API_KEY, 
+                apiUrl: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent", 
+                type: "gemini" 
+            },
+            
         };
 
-        // --- TEACHER PROMPTS (FULLY RESTORED) ---
+        // --- TEACHER PROMPTS ---
         const MATH_PROMPT_SUFFIX = "\n\n**Mandatory Formatting Rule:** For any mathematical formula, equation, or expression, use LaTeX format. Wrap block-display math with `$$...$$` and inline math with `$...$`. Crucially, ensure all LaTeX commands use **single backslashes** (e.g., `\\frac{a}{b}`).";
 
         const TEACHER_PROMPTS = {
@@ -565,7 +572,10 @@
         const renderMessage = (msg) => {
             const isUser = msg.sender === 'user';
             const wrapper = document.createElement('div');
+            // CHANGE: Wrapper now just aligns the message left or right.
             wrapper.className = `chat-message-wrapper animate-fade-in-up ${isUser ? 'user' : ''}`; 
+            
+            // CHANGE: Avatar element creation has been removed.
             
             const msgBubble = document.createElement('div');
             msgBubble.className = `relative group chat-message-bubble ${isUser ? 'user-message-bubble' : 'ai-message-bubble'}`;
@@ -582,6 +592,7 @@
             msgBubble.appendChild(prose);
             msg.domElement = prose;
 
+            // CHANGE: The bubble is now the only child of the wrapper.
             wrapper.appendChild(msgBubble);
             return wrapper;
         };
@@ -633,6 +644,7 @@
             dom.chatWindow.appendChild(renderMessage(userMessage));
             dom.chatWindow.scrollTop = dom.chatWindow.scrollHeight;
             
+            const modelConfig = MODEL_CONFIGS[selectedModel]; 
             const aiMessage = { sender: 'ai', text: '', streaming: true };
             messages.push(aiMessage);
             const aiMessageElement = renderMessage(aiMessage);
@@ -640,34 +652,115 @@
             dom.chatWindow.scrollTop = dom.chatWindow.scrollHeight;
 
             try {
-                const modelConfig = MODEL_CONFIGS[selectedModel];
+                let payload;
+                let fetchOptions;
+                let apiUrl;
+
+                if (modelConfig.type === 'openrouter') {
+                    apiUrl = modelConfig.apiUrl;
+                    
+                    const messagesForApi = [];
+                    if (systemPrompt) {
+                        messagesForApi.push({ role: 'system', content: systemPrompt });
+                    }
+                    const visibleHistory = messages.slice(0, -1).map(m => ({
+                        role: m.sender === 'user' ? 'user' : 'assistant',
+                        content: m.text
+                    }));
+                    messagesForApi.push(...visibleHistory);
+
+                    payload = {
+                        model: modelConfig.modelName,
+                        messages: messagesForApi,
+                        temperature: 0.7
+                    };
+
+                    fetchOptions = {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${modelConfig.apiKey}`,
+                            'HTTP-Referer': 'https://tbd-chat-app.com', // Example referrer
+                            'X-Title': 'TBD Chat' // Example title
+                        },
+                        body: JSON.stringify(payload)
+                    };
+                } else { // 'gemini'
+                    apiUrl = `${modelConfig.apiUrl}?key=${modelConfig.apiKey}`;
+                    
+                    const contentsForApi = [];
+                    if (systemPrompt) {
+                        contentsForApi.push({ role: 'user', parts: [{ text: systemPrompt }] });
+                        contentsForApi.push({ role: 'model', parts: [{ text: "Understood. I will act as the specified teacher and use LaTeX for all math, ensuring correct single backslashes and proper delimiters." }] });
+                    }
+                    const visibleHistory = messages.slice(0, -1).map(m => ({
+                        role: m.sender === 'user' ? 'user' : 'model',
+                        parts: [{ text: m.text }]
+                    }));
+                    contentsForApi.push(...visibleHistory);
                 
-                const historyForApi = messages.slice(0, -1).map(m => ({
-                    role: m.sender,
-                    content: m.text
-                }));
+                    payload = { 
+                        contents: contentsForApi, 
+                        generationConfig: { temperature: 0.7 } 
+                    };
 
-                const payload = {
-                    modelType: modelConfig.type,
-                    modelName: modelConfig.modelName,
-                    messages: historyForApi,
-                    systemPrompt: systemPrompt
-                };
+                    fetchOptions = {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    };
+                }
 
-                const response = await fetch(BACKEND_API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
+                const response = await fetch(apiUrl, fetchOptions);
                 const result = await response.json();
 
                 if (!response.ok || result.error) {
-                    throw new Error(result.error || `Request failed with status ${response.status}`);
+                    throw new Error(result.error?.message || `HTTP Error ${response.status}: ${JSON.stringify(result)}`);
+                }
+                
+                let rawAiText;
+                if (modelConfig.type === 'openrouter') {
+                    rawAiText = result.choices?.[0]?.message?.content || "No response received.";
+                } else { // 'gemini'
+                    rawAiText = result.candidates?.[0]?.content?.parts?.[0]?.text || "No response received.";
                 }
 
-                aiMessage.text = result.reply;
+                // --- ROBUST LATEX PRE-PROCESSING AND SANITIZATION ---
+                const mathBlocks = [];
+                const mathRegex = /(\$\$[\s\S]*?\$\$|\$[\s\S]*?\$)/g; 
+                let tempTextToProcess = rawAiText; 
 
+                let match;
+                mathRegex.lastIndex = 0; 
+                let processedTextWithPlaceholders = rawAiText; 
+
+                while ((match = mathRegex.exec(tempTextToProcess)) !== null) {
+                    const fullMatch = match[0]; 
+
+                    let latexContent = fullMatch;
+                    latexContent = latexContent.replace(/\\\\/g, '\\'); 
+                    
+                    const placeholder = `MATH_PLACEHOLDER_${mathBlocks.length}__`;
+                    mathBlocks.push({ placeholder: placeholder, latex: latexContent });
+
+                    processedTextWithPlaceholders = 
+                        processedTextWithPlaceholders.substring(0, match.index) + 
+                        placeholder + 
+                        processedTextWithPlaceholders.substring(match.index + fullMatch.length);
+                    
+                    mathRegex.lastIndex = match.index + placeholder.length;
+                    tempTextToProcess = processedTextWithPlaceholders; 
+                }
+
+                let htmlContent = marked.parse(processedTextWithPlaceholders);
+
+                mathBlocks.forEach(block => {
+                    const globalPlaceholderRegex = new RegExp(block.placeholder.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'g');
+                    htmlContent = htmlContent.replace(globalPlaceholderRegex, block.latex);
+                });
+
+                aiMessage.text = htmlContent; 
+                
             } catch (error) {
                 aiMessage.text = `**Error:** ${error.message}`;
                 console.error('API Error:', error);
@@ -677,10 +770,17 @@
                 const proseElement = aiMessage.domElement;
                 const msgBubbleElement = proseElement.parentElement;
                 
-                proseElement.innerHTML = marked.parse(aiMessage.text || ''); 
+                proseElement.innerHTML = aiMessage.text; 
                 
                 if (window.MathJax) {
-                    MathJax.typesetPromise([proseElement]).catch(err => console.error("MathJax rendering failed:", err));
+                    MathJax.typesetPromise([proseElement]).then(() => {
+                        dom.chatWindow.scrollTop = dom.chatWindow.scrollHeight;
+                    }).catch(err => {
+                        console.error("MathJax rendering failed:", err);
+                        showError("Failed to render math formulas.");
+                    });
+                } else {
+                    dom.chatWindow.scrollTop = dom.chatWindow.scrollHeight;
                 }
                 
                 if (msgBubbleElement && !msgBubbleElement.querySelector('.message-copy-button')) {
@@ -762,6 +862,7 @@
                     messages = [{ sender: 'ai', text: teacher.initialEngagementMessage }];
                     renderAllMessages(); 
 
+                    // Ensure model select is always enabled
                     dom.modelSelect.disabled = false; 
 
                     dom.chatWindow.style.opacity = '1';
