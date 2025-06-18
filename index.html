@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TBD Chat</title>
+    <title>TBD-01 Chat</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -99,7 +99,7 @@
             max-width: 100%; 
             word-wrap: break-word; 
             overflow-wrap: break-word;
-            word-break: break-word; /* CHANGE: Added to force long text like formulas to wrap */
+            word-break: break-word;
         }
         .prose h1, .prose h2, .prose h3 { color: var(--ai-msg-text); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.3em; }
         .prose pre { background-color: rgba(0,0,0,0.2); color: #f9fafb; padding: 1em; border-radius: 0.5rem; border: 1px solid var(--border-color); font-size: 0.9em; overflow-x: auto; }
@@ -145,53 +145,96 @@
         #sidebar-overlay.open { opacity: 1; pointer-events: auto; }
 
         /* --- STYLES MODIFIED AS PER REQUEST --- */
-
-        /* Custom Styles for chat message bubbles for a modern, full-width look */
         .chat-message-bubble {
-            max-width: 95%; /* CHANGE: Increased max-width to use more screen space */
+            max-width: 95%; 
             border-radius: 0.75rem; 
             padding: 1rem; 
             box-shadow: none; 
             margin-bottom: 0.5rem; 
         }
-        /* Specific styles for user messages */
         .user-message-bubble {
             background-color: var(--user-msg-bg);
             color: var(--user-msg-text);
             margin-left: auto; 
-            /* CHANGE: Removed specific border-radius to have uniform rounded corners */
         }
-        /* Specific styles for AI messages */
         .ai-message-bubble {
             background-color: var(--ai-msg-bg);
             color: var(--ai-msg-text);
             margin-right: auto; 
-            /* CHANGE: Removed specific border-radius to have uniform rounded corners */
         }
-
-        /* CHANGE: AVATAR STYLES REMOVED */
-        /* The .avatar, .user-avatar, and .ai-avatar classes have been removed
-           as the avatars are no longer being rendered in the chat message row. */
-
-        /* Wrapper for each message, controls alignment */
         .chat-message-wrapper {
             display: flex;
             align-items: flex-start;
-            /* CHANGE: Removed gap as there is no more avatar */
             margin-bottom: 1rem; 
         }
         .chat-message-wrapper.user {
             justify-content: flex-end; 
         }
+        
+        /* --- NEW STYLES FOR WELCOME SCREEN --- */
+        #welcome-screen {
+            position: fixed;
+            inset: 0;
+            background-color: #111827; /* Dark background for focus */
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            transition: opacity 0.5s ease-out;
+        }
+        #welcome-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        #welcome-image {
+            max-height: 80vh;
+            max-width: 90vw;
+            width: auto;
+            height: auto;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            object-fit: contain; /* Important for maintaining aspect ratio */
+            margin-bottom: 2rem;
+        }
+        #get-started-button {
+            padding: 0.75rem 2.5rem;
+            background-color: var(--send-button-bg, #059669);
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            font-size: 1.125rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            transform: scale(1);
+        }
+        #get-started-button:hover {
+            background-color: var(--send-button-hover-bg, #10B981);
+            transform: scale(1.05);
+        }
     </style>
 </head>
 <body>
+    <!-- NEW: Welcome Screen with Image -->
+    <div id="welcome-screen">
+        <img id="welcome-image" 
+             src="https://i.imgur.com/LIBipKr.png" 
+             alt="Welcome to TBD-01">
+        <button id="get-started-button">Get Started</button>
+    </div>
+
     <div id="app" class="relative h-full w-full animate-fade-in flex">
         
         <!-- Sidebar -->
         <aside id="main-sidebar" class="fixed top-0 left-0 z-40 w-80 h-full bg-[var(--sidebar-bg)] border-r border-[var(--border-color)] p-6 flex flex-col gap-y-8 transition-transform duration-300 ease-in-out -translate-x-full md:translate-x-0">
             <div class="flex items-center justify-between">
-                <h1 class="text-2xl font-bold text-[var(--text-color)]">TBD Chat</h1>
+                <!-- BRANDING: Updated with Logo and Name -->
+                <div class="flex items-center gap-3">
+                    <img src="https://i.imgur.com/VQnM26j.png" alt="TBD-01 Logo" class="h-8 w-auto">
+                    <h1 class="text-2xl font-bold text-[var(--text-color)]">TBD-01</h1>
+                </div>
                 <button id="sidebar-close-button" class="p-1 rounded-full text-[var(--text-color)] hover:bg-[var(--button-hover-bg)] md:hidden">
                     <!-- Icon set by JS -->
                 </button>
@@ -236,7 +279,8 @@
                     <button id="menu-toggle" class="p-2 rounded-full text-[var(--text-color)] hover:bg-[var(--button-hover-bg)] md:hidden">
                         <!-- Icon set by JS -->
                     </button>
-                    <h2 class="text-xl font-bold text-[var(--text-color)]">Chat</h2>
+                    <!-- BRANDING: Updated Header Title -->
+                    <h2 class="text-xl font-bold text-[var(--text-color)]">TBD-01 Chat</h2>
                 </div>
                 <button id="restart-chat-button" title="Restart Chat" class="p-2 rounded-full text-[var(--text-color)] hover:bg-[var(--button-hover-bg)] hover:text-[var(--danger-color)] transition-all">
                      <!-- Icon set by JS -->
@@ -620,6 +664,9 @@
             sidebarOverlay: document.getElementById('sidebar-overlay'),
             menuToggle: document.getElementById('menu-toggle'),
             sidebarCloseButton: document.getElementById('sidebar-close-button'),
+            // NEW: References for Welcome Screen
+            welcomeScreen: document.getElementById('welcome-screen'),
+            getStartedButton: document.getElementById('get-started-button'),
         };
         
         const ICONS = {
@@ -657,7 +704,7 @@
             dom.chatWindow.innerHTML = `
                 <div class="flex-1 flex flex-col justify-center items-center text-center max-w-2xl mx-auto px-4 animate-fade-in-up">
                     <h1 class="text-4xl md:text-5xl font-bold text-[var(--text-color)] mb-3">
-                        <span class="inline-block mr-2 animate-wiggle">👋</span> Hi! I'm TBD Chat –
+                        <span class="inline-block mr-2 animate-wiggle">👋</span> Hi! I'm TBD-01 –
                     </h1>
                     <h2 class="text-3xl md:text-4xl font-semibold text-[var(--text-color)] mb-8">
                         your AI study buddy.<br/>How can I help you grow today?
@@ -705,10 +752,7 @@
         const renderMessage = (msg) => {
             const isUser = msg.sender === 'user';
             const wrapper = document.createElement('div');
-            // CHANGE: Wrapper now just aligns the message left or right.
             wrapper.className = `chat-message-wrapper animate-fade-in-up ${isUser ? 'user' : ''}`; 
-            
-            // CHANGE: Avatar element creation has been removed.
             
             const msgBubble = document.createElement('div');
             msgBubble.className = `relative group chat-message-bubble ${isUser ? 'user-message-bubble' : 'ai-message-bubble'}`;
@@ -725,7 +769,6 @@
             msgBubble.appendChild(prose);
             msg.domElement = prose;
 
-            // CHANGE: The bubble is now the only child of the wrapper.
             wrapper.appendChild(msgBubble);
             return wrapper;
         };
@@ -813,8 +856,8 @@
                         headers: {
                             'Content-Type': 'application/json',
                             'Authorization': `Bearer ${modelConfig.apiKey}`,
-                            'HTTP-Referer': 'https://tbd-chat-app.com', // Example referrer
-                            'X-Title': 'TBD Chat' // Example title
+                            'HTTP-Referer': 'https://tbd-chat-app.com',
+                            'X-Title': 'TBD-01 Chat' // BRANDING: Updated API Title
                         },
                         body: JSON.stringify(payload)
                     };
@@ -1024,7 +1067,6 @@
             defaultClassOption.selected = true;
             dom.classSelect.appendChild(defaultClassOption);
             
-            // ADDED CLASS 8
             const classOption8 = document.createElement('option');
             classOption8.value = "8";
             classOption8.innerText = "Class 8";
@@ -1097,6 +1139,15 @@
             renderAllMessages();
 
             // Event Listeners
+            // NEW: Add event listener for the 'Get Started' button
+            dom.getStartedButton.addEventListener('click', () => {
+                dom.welcomeScreen.classList.add('hidden');
+                // Use setTimeout to remove the element from the DOM after the fade-out transition completes
+                setTimeout(() => {
+                    dom.welcomeScreen.style.display = 'none';
+                }, 500); // This duration should match the transition time in CSS
+            });
+            
             dom.modelSelect.addEventListener('change', (e) => { 
                 selectedModel = e.target.value;
             });
