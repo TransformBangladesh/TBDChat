@@ -99,7 +99,7 @@
             max-width: 100%; 
             word-wrap: break-word; 
             overflow-wrap: break-word;
-            word-break: break-word; /* CHANGE: Added to force long text like formulas to wrap */
+            word-break: break-word;
         }
         .prose h1, .prose h2, .prose h3 { color: var(--ai-msg-text); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.3em; }
         .prose pre { background-color: rgba(0,0,0,0.2); color: #f9fafb; padding: 1em; border-radius: 0.5rem; border: 1px solid var(--border-color); font-size: 0.9em; overflow-x: auto; }
@@ -148,7 +148,7 @@
 
         /* Custom Styles for chat message bubbles for a modern, full-width look */
         .chat-message-bubble {
-            max-width: 95%; /* CHANGE: Increased max-width to use more screen space */
+            max-width: 95%; 
             border-radius: 0.75rem; 
             padding: 1rem; 
             box-shadow: none; 
@@ -159,25 +159,18 @@
             background-color: var(--user-msg-bg);
             color: var(--user-msg-text);
             margin-left: auto; 
-            /* CHANGE: Removed specific border-radius to have uniform rounded corners */
         }
         /* Specific styles for AI messages */
         .ai-message-bubble {
             background-color: var(--ai-msg-bg);
             color: var(--ai-msg-text);
             margin-right: auto; 
-            /* CHANGE: Removed specific border-radius to have uniform rounded corners */
         }
-
-        /* CHANGE: AVATAR STYLES REMOVED */
-        /* The .avatar, .user-avatar, and .ai-avatar classes have been removed
-           as the avatars are no longer being rendered in the chat message row. */
 
         /* Wrapper for each message, controls alignment */
         .chat-message-wrapper {
             display: flex;
             align-items: flex-start;
-            /* CHANGE: Removed gap as there is no more avatar */
             margin-bottom: 1rem; 
         }
         .chat-message-wrapper.user {
@@ -286,34 +279,39 @@
         <div id="error-banner" class="fixed top-20 right-4 p-4 rounded-lg shadow-lg bg-[var(--danger-color)] text-white z-50 hidden transition-opacity duration-300" role="alert"></div>
     </div>
 
+    <!-- START: BACKEND INTEGRATION -->
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBk1ifRKdLLWSBFoCwketbTGk6iffPlFTM",
+            authDomain: "tbd-chatbot-keys.firebaseapp.com",
+            projectId: "tbd-chatbot-keys",
+            storageBucket: "tbd-chatbot-keys.firebasestorage.app",
+            messagingSenderId: "376939806346",
+            appId: "1:376939806346:web:1998771835577a79163773"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+    </script>
+    <!-- END: BACKEND INTEGRATION -->
+
     <script>
+        // --- BACKEND API CONFIGURATION ---
+        // This URL should point to your backend server (e.g., a Firebase Cloud Function).
+        // This server will be responsible for securely calling the AI model APIs.
+        const BACKEND_API_URL = "https://your-cloud-function-url.net/chat"; // <-- IMPORTANT: REPLACE WITH YOUR ACTUAL BACKEND URL
+
         // --- MODEL CONFIGURATION ---
-        // API keys are directly embedded as per user's instruction.
-        const GEMINI_API_KEY = "AIzaSyCGkTeb_Yjh7uDiwNvHSDHV7kTRkEJ2b78";
-        const OPENROUTER_API_KEY = "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";
-
+        // API keys are REMOVED from the client. The backend now handles this.
+        // This object now just provides a list of models for the UI dropdown.
         const MODEL_CONFIGS = {
-            "Gemma 3 (Recommended)": { 
-
-                apiKey: GEMINI_API_KEY, 
-
-                apiUrl: "https://generativelanguage.googleapis.com/v1beta/models/gemma-3-27b-it:generateContent", 
-
-                type: "gemini" 
-
-            },
-
-            "Gemini 2.0 Flash (Fast)": { 
-                apiKey: GEMINI_API_KEY, 
-                apiUrl: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent", 
-                type: "gemini" 
-            },
-            "Gemini 2.5 Flash (Smartest)": { 
-                apiKey: GEMINI_API_KEY, 
-                apiUrl: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent", 
-                type: "gemini" 
-            },
-            
+            "Gemma 3 (Recommended)": {},
+            "Gemini 2.0 Flash (Fast)": {},
+            "Gemini 2.5 Flash (Smartest)": {},
         };
 
         // --- TEACHER PROMPTS ---
@@ -705,10 +703,7 @@
         const renderMessage = (msg) => {
             const isUser = msg.sender === 'user';
             const wrapper = document.createElement('div');
-            // CHANGE: Wrapper now just aligns the message left or right.
             wrapper.className = `chat-message-wrapper animate-fade-in-up ${isUser ? 'user' : ''}`; 
-            
-            // CHANGE: Avatar element creation has been removed.
             
             const msgBubble = document.createElement('div');
             msgBubble.className = `relative group chat-message-bubble ${isUser ? 'user-message-bubble' : 'ai-message-bubble'}`;
@@ -725,7 +720,6 @@
             msgBubble.appendChild(prose);
             msg.domElement = prose;
 
-            // CHANGE: The bubble is now the only child of the wrapper.
             wrapper.appendChild(msgBubble);
             return wrapper;
         };
@@ -761,7 +755,8 @@
             dom.sendButton.disabled = !enable;
             dom.messageInput.disabled = !enable;
         };
-
+        
+        // --- MODIFIED handleSend to use the backend ---
         const handleSend = async () => {
             const text = dom.messageInput.value.trim();
             if (!text || dom.sendButton.disabled) return;
@@ -777,7 +772,6 @@
             dom.chatWindow.appendChild(renderMessage(userMessage));
             dom.chatWindow.scrollTop = dom.chatWindow.scrollHeight;
             
-            const modelConfig = MODEL_CONFIGS[selectedModel]; 
             const aiMessage = { sender: 'ai', text: '', streaming: true };
             messages.push(aiMessage);
             const aiMessageElement = renderMessage(aiMessage);
@@ -785,80 +779,36 @@
             dom.chatWindow.scrollTop = dom.chatWindow.scrollHeight;
 
             try {
-                let payload;
-                let fetchOptions;
-                let apiUrl;
-
-                if (modelConfig.type === 'openrouter') {
-                    apiUrl = modelConfig.apiUrl;
-                    
-                    const messagesForApi = [];
-                    if (systemPrompt) {
-                        messagesForApi.push({ role: 'system', content: systemPrompt });
-                    }
-                    const visibleHistory = messages.slice(0, -1).map(m => ({
-                        role: m.sender === 'user' ? 'user' : 'assistant',
-                        content: m.text
-                    }));
-                    messagesForApi.push(...visibleHistory);
-
-                    payload = {
-                        model: modelConfig.modelName,
-                        messages: messagesForApi,
-                        temperature: 0.7
-                    };
-
-                    fetchOptions = {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${modelConfig.apiKey}`,
-                            'HTTP-Referer': 'https://tbd-chat-app.com', // Example referrer
-                            'X-Title': 'TBD Chat' // Example title
-                        },
-                        body: JSON.stringify(payload)
-                    };
-                } else { // 'gemini'
-                    apiUrl = `${modelConfig.apiUrl}?key=${modelConfig.apiKey}`;
-                    
-                    const contentsForApi = [];
-                    if (systemPrompt) {
-                        contentsForApi.push({ role: 'user', parts: [{ text: systemPrompt }] });
-                        contentsForApi.push({ role: 'model', parts: [{ text: "Understood. I will act as the specified teacher and use LaTeX for all math, ensuring correct single backslashes and proper delimiters." }] });
-                    }
-                    const visibleHistory = messages.slice(0, -1).map(m => ({
-                        role: m.sender === 'user' ? 'user' : 'model',
-                        parts: [{ text: m.text }]
-                    }));
-                    contentsForApi.push(...visibleHistory);
+                // Prepare the conversation history for the backend
+                const historyForApi = messages.slice(0, -1).map(m => ({
+                    role: m.sender === 'user' ? 'user' : 'assistant', // 'assistant' is a common term for the AI's role
+                    content: m.text
+                }));
                 
-                    payload = { 
-                        contents: contentsForApi, 
-                        generationConfig: { temperature: 0.7 } 
-                    };
+                // This is the data we send to our backend server
+                const payload = {
+                    model: selectedModel,
+                    systemPrompt: systemPrompt,
+                    messages: historyForApi
+                };
 
-                    fetchOptions = {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    };
-                }
+                const fetchOptions = {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                };
 
-                const response = await fetch(apiUrl, fetchOptions);
+                const response = await fetch(BACKEND_API_URL, fetchOptions);
                 const result = await response.json();
 
                 if (!response.ok || result.error) {
-                    throw new Error(result.error?.message || `HTTP Error ${response.status}: ${JSON.stringify(result)}`);
+                    throw new Error(result.error?.message || `Backend Error ${response.status}: ${JSON.stringify(result)}`);
                 }
                 
-                let rawAiText;
-                if (modelConfig.type === 'openrouter') {
-                    rawAiText = result.choices?.[0]?.message?.content || "No response received.";
-                } else { // 'gemini'
-                    rawAiText = result.candidates?.[0]?.content?.parts?.[0]?.text || "No response received.";
-                }
+                // The backend should return the AI's reply in a field, e.g., "reply"
+                let rawAiText = result.reply || "No response received from the backend.";
 
-                // --- ROBUST LATEX PRE-PROCESSING AND SANITIZATION ---
+                // --- ROBUST LATEX PRE-PROCESSING AND SANITIZATION (No changes needed here) ---
                 const mathBlocks = [];
                 const mathRegex = /(\$\$[\s\S]*?\$\$|\$[\s\S]*?\$)/g; 
                 let tempTextToProcess = rawAiText; 
